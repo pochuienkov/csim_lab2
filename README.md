@@ -97,96 +97,36 @@ if random-float 1.0 > survival-chance [
 </pre>
 Залежно від параметру сили збирача він або помирає при поїданні отруйних фруктів, або виживає і його швидкість зменшується вдвічі. На власний розсуд було додано фіолетовий хрестик на карті коли збирач помирає від отрути.
 
+**Додаємо на графік "Death by type" новий тип смертності "від отруєння"(poison)**:  
+![Додаємо на графік новий тип смертності](poison-table.png)
+
 <br>
 
 ### Внесені зміни у вихідну логіку моделі, на власний розсуд:
 
-**Додано ймовірність безвідповідальності водія, який, при нагоді, їздитиме узбіччям**.
-Імовірність встановлюється користувачем через інтерфейс середовища моделювання (слайдер для bad-driver-probability) та використовується при додаванні машин на полі:
+**Змінюємо логіку моделі так, щоб отруйні кущі не давали енергії, але все одно зникали при поїданні.**Вносимо зміни у процедуру to forage:
 <pre>
-globals [
-  sample-car
-  speed-min
-  car-roadside-amount
-  bad-driver-probability
+let bush-is-poison [poisonous?] of target-bush
+
+; Кущ зменшується у будь-якому разі
+ask target-bush [ set amount amount - 10 ]
+
+; Енергію даємо ТІЛЬКИ якщо кущ НЕ отруйний
+if not bush-is-poison [
+  set energy energy + forage-rate
+  set total-foraged total-foraged + forage-rate
 ]
 
-;; виїзд на узбіччя здійснюється, якщо перед машиною є інша машина і ще одна, водій "поганий", знаходиться на дорозі (бо з узбіччя з'їжджати далі нікуди)
-if (car-ahead-1 != nobody) [
-    ;; перевіряємо, чи буде на даному тіку водій "недисциплінованим"
-    let rand random 100
-    ifelse(rand < bad-driver-probability) [
-      ;; якщо недисциплінований, і при цьому є додаткова перешкода перед машинойї перед нами, то переміщуємось на узбіччя
-      if(car-ahead-2 != nobody) [
-        ;; перевірка, чи знаходимось ми зараз на дорозі і чи вільне узбіччя
-        if (is-on-road) and (roadside-free-check) [
-          set heading 180
-          fd 1
-          set heading 90
-          ;; збільшуємо лічильник "узбічників"
-          set car-roadside-amount car-roadside-amount + 1
-        ]
-      ]
-    ]
+; Перевірка на вичерпання куща
+if [amount] of target-bush < 0 [
+  ; Якщо кущ був отруйним -> застосувати отруту до всіх на цій клітині
+  if bush-is-poison [
+    ask foragers-at-this-bush [ apply-poison ]
   ]
-</pre>
-Лічильник "поганих водіїв" виводитиметься користувачеві.
-
-Перед виїздом на узбіччя, воне проглядається водієм, чи вільно там, за допомогою функції is-roadside-free:
-<pre>
-to-report roadside-free-check
-  set heading 180
-  let car-roadside one-of turtles-on patch-ahead 1
-  set heading 90
-  ;ifelse(car-roadside = nobody) [
-    report car-roadside = nobody
-  ;;]
-  ;;[
-  ;;  report false
-  ;;]
-end
+  ask target-bush [ die ]
+]
 </pre>
 
-Пеервірка, чи знаходимось на дорозі:
-<pre>
-to-report is-on-road
-    report pycor = 0
-end
-</pre>
-
-Додано узбіччя, дорога зведена до повноційної односмугової:
-<pre>
-to setup-road ;; patch procedure
-  if pycor < 1 and pycor > -2 [ set pcolor yellow ]
-  if pycor < 1 and pycor > -1 [ set pcolor white ]
-end
-</pre>
-
-На кожному ході виконується перевірка, чи знаходиться машина на дорозі. Якщо машина їде узбіччям, то намагатиметься повернутися на дорогу:
-<pre>
-  if(not is-on-road) [
-      if (road-main-free-check) [
-        set heading 0
-        fd 1
-        set heading 90
-        set car-roadside-amount car-roadside-amount - 1
-      ]
-    ]
-</pre>
-Функція перевірки, чи вільна дорога поблизу машини, щоб можна було повернутися з узбіччя:
-<pre>
-to-report road-main-free-check
-  set heading 0
-  let car-road one-of turtles-on patch-ahead 1
-  set heading 90
-  ;ifelse(car-roadside = nobody) [
-    report car-road = nobody
-  ;;]
-  ;;[
-  ;;  report false
-  ;;]
-end
-</pre>
 
 ![Скріншот моделі в процесі симуляції](example-model.png)
 
